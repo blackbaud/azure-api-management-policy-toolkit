@@ -27,5 +27,5 @@ public static class StringExtensions
     /// so that code calling <c>.FirstOrDefault()</c> on a <c>string?</c> (from Claims.GetValueOrDefault)
     /// compiles correctly, returning <c>string?</c> rather than <c>char?</c>.
     /// </summary>
-    public static string? FirstOrDefault(this string s) => s;
+    public static string? FirstOrDefault(this string? s) => s;
 }
