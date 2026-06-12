@@ -59,15 +59,25 @@ public sealed class CustomXmlWriter : IDisposable
                 case XElement childElement:
                     Write(childElement);
                     break;
+                // XCData derives from XText and must be matched first.
+                case XCData cdata:
+                    _xmlWriter.WriteCData(cdata.Value);
+                    break;
                 case XText textNode when string.IsNullOrWhiteSpace(textNode.Value):
                     // Whitespace-only text nodes (indentation from formatted body) — write as
                     // whitespace so that siblings and their children are separated in the output.
                     _xmlWriter.WriteWhitespace(textNode.Value);
                     break;
                 case XText textNode:
-                    // Non-whitespace text nodes (e.g., Liquid {% if %} tags in mixed content)
-                    // are written raw so that special characters like > are not re-escaped.
-                    _xmlWriter.WriteRaw(textNode.Value);
+                    // Delegate to WriteValue so that APIM policy expressions (@(...) / @{...})
+                    // are written raw while all other text is properly XML-escaped.
+                    WriteValue(textNode.Value);
+                    break;
+                case XComment comment:
+                    comment.WriteTo(_xmlWriter);
+                    break;
+                case XProcessingInstruction pi:
+                    _xmlWriter.WriteProcessingInstruction(pi.Target, pi.Data);
                     break;
             }
         }
