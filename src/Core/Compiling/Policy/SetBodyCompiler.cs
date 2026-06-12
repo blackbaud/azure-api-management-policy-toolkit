@@ -146,7 +146,7 @@ public class SetBodyCompiler : IMethodPolicyHandler
                 // whitespace in the body (e.g. newlines between <Year>/<Month>/<Day>) is kept as
                 // text nodes and written verbatim by CustomXmlWriter.WriteNodes.
                 var doc = XDocument.Parse("<__root__>" + content + "</__root__>", LoadOptions.PreserveWhitespace);
-                foreach (var node in doc.Root!.Nodes())
+                foreach (var node in doc.Root!.Nodes().ToList())
                     element.Add(node);
                 return;
             }
