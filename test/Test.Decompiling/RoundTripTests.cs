@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+//
+//
 
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -17,7 +18,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Microsoft.Azure.ApiManagement.PolicyToolkit.Tests.Decompiling;
 
@@ -145,7 +145,7 @@ public class RoundTripTests
         var xml = """
             <policies>
                 <inbound>
-                    <send-request response-variable-name="response" mode="new" timeout="30">
+                    <send-request mode="new" response-variable-name="response" timeout="30">
                         <set-url>https://api.example.com/resource</set-url>
                         <set-method>GET</set-method>
                     </send-request>
@@ -153,6 +153,39 @@ public class RoundTripTests
             </policies>
             """;
         AssertRoundTrip(xml);
+    }
+
+    [TestMethod]
+    public void Cors_Decompiler_Preserves_Methods_Before_Headers_Order()
+    {
+        var xml = """
+            <policies>
+                <inbound>
+                    <cors>
+                        <allowed-origins>
+                            <origin>contoso.com</origin>
+                        </allowed-origins>
+                        <allowed-methods preflight-result-max-age="100">
+                            <method>PUT</method>
+                            <method>DELETE</method>
+                        </allowed-methods>
+                        <allowed-headers>
+                            <header>accept</header>
+                        </allowed-headers>
+                        <expose-headers>
+                            <header>x-test</header>
+                        </expose-headers>
+                    </cors>
+                </inbound>
+            </policies>
+            """;
+
+        var csharp = s_decompiler.DecompileDocument(xml.Trim(), "RoundTripPolicy", "RoundTripTest");
+
+        csharp.IndexOf("AllowedMethods", StringComparison.Ordinal).Should().BeGreaterThan(-1);
+        csharp.IndexOf("AllowedHeaders", StringComparison.Ordinal).Should().BeGreaterThan(-1);
+        csharp.IndexOf("AllowedMethods", StringComparison.Ordinal)
+            .Should().BeLessThan(csharp.IndexOf("AllowedHeaders", StringComparison.Ordinal));
     }
 
     [TestMethod]

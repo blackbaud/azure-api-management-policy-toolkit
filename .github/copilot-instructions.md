@@ -84,6 +84,36 @@ Use structurally similar existing policies as references:
 - 4-space indentation, CRLF line endings, Allman braces
 - Root namespace: `Microsoft.Azure.ApiManagement.PolicyToolkit`
 
+## Decompiler Tool
+
+The `src/Decompiling/` project is a dotnet tool (`azure-apim-policy-decompiler`) that converts APIM policy XML to C# files. It is a companion to the compiler and uses the same `PolicyDecompiler` from `src/Core/Decompiling/`.
+
+### Key Files
+
+- `src/Decompiling/Program.cs` — CLI entry point; `BuildClassName`, `BuildNamespace`, `GetFragmentId`, `SanitizeIdentifier` helper functions
+- `src/Core/Decompiling/PolicyDecompiler.cs` — main decompiler: `DecompileDocument`, `DecompileFragment`, `PreprocessXml` (handles non-well-formed APIM XML containing raw C# expressions)
+- `src/Core/Decompiling/PolicyDecompilerContext.cs` — shared context for all decompilers; expression method generation, named value handling
+
+### Build & Pack Workflow
+
+```powershell
+.\build-and-pack.ps1          # build, pack, and clear NuGet cache
+```
+
+The `build-and-pack.ps1` script:
+1. Runs `dotnet build -c Release --no-incremental` (forces full rebuild to pick up changed project references)
+2. Runs `dotnet pack -c Release` (outputs nupkg files to `output/`)
+3. Clears the local NuGet package caches for the toolkit packages (required when the same version number is being replaced)
+
+### Known Decompiler Behaviors
+
+- **Expression whitespace**: `PolicyDecompilerContext.IsExpression` and `CreateExpressionMethodReference` trim leading/trailing whitespace before expression detection, so XML element body text like `"\n    @{\n...\n}\n"` is correctly recognized as a C# expression method.
+- **Non-well-formed XML**: `PolicyDecompiler.PreprocessXml` replaces C# expression spans (`@{...}` / `@(...)`) with placeholders before XML parsing, then restores them afterward.
+- **Named value tokens**: Named values like `{{my-named-value}}` become `context.NamedValues["my-named-value"]` calls.
+- **`set-status` and `return-response` without `reason`**: When a `<set-status>` or nested `<set-status>` in `<return-response>` has no `reason` attribute, the decompiler emits `Reason = ""` as the default to satisfy `StatusConfig`'s `required` property.
+- **`string?.FirstOrDefault()` returns `string?`**: `StringExtensions.FirstOrDefault(this string s)` shadows `IEnumerable<char>.FirstOrDefault()` so that calling `.FirstOrDefault()` on the `string?` result of `Claims.GetValueOrDefault(key)` returns `string?` rather than `char?`.
+- **Emitted `using` directives**: `EmitUsings` in `PolicyDecompiler.cs` emits 6 namespaces: `Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring`, `Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring.Expressions`, `Newtonsoft.Json.Linq`, `System.Text`, `System.Text.RegularExpressions`, and `System.Xml.Linq`.
+
 ## Copilot Skills and Agents
 
 This repo has custom Copilot skills in `.github/skills/` and agents in `.github/agents/` for policy implementation workflows.

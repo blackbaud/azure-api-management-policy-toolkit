@@ -48,7 +48,7 @@ public class PolicyDecompiler
         _context.Reset();
 
         var preprocessed = PreprocessXml(xml);
-        var doc = XDocument.Parse(preprocessed);
+        var doc = XDocument.Parse(preprocessed, LoadOptions.PreserveWhitespace);
         var policies = doc.Root
             ?? throw new ArgumentException("Invalid XML: missing root element.");
 
@@ -102,7 +102,7 @@ public class PolicyDecompiler
         _context.Reset();
 
         var preprocessed = PreprocessXml(xml);
-        var doc = XDocument.Parse(preprocessed);
+        var doc = XDocument.Parse(preprocessed, LoadOptions.PreserveWhitespace);
         var fragment = doc.Root
             ?? throw new ArgumentException("Invalid XML: missing root element.");
 
@@ -134,6 +134,10 @@ public class PolicyDecompiler
     {
         writer.AppendLine("using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring;");
         writer.AppendLine("using Microsoft.Azure.ApiManagement.PolicyToolkit.Authoring.Expressions;");
+        writer.AppendLine("using Newtonsoft.Json.Linq;");
+        writer.AppendLine("using System.Text;");
+        writer.AppendLine("using System.Text.RegularExpressions;");
+        writer.AppendLine("using System.Xml.Linq;");
         writer.AppendLine();
     }
 

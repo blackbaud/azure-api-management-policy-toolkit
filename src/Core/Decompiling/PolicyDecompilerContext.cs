@@ -77,9 +77,12 @@ public class PolicyDecompilerContext
 
     #region Expression Handling
 
-    public bool IsExpression(string value) =>
-        (value.StartsWith("@(") && value.EndsWith(")")) ||
-        (value.StartsWith("@{") && value.EndsWith("}"));
+    public bool IsExpression(string value)
+    {
+        var trimmed = value.Trim();
+        return (trimmed.StartsWith("@(") && trimmed.EndsWith(")")) ||
+               (trimmed.StartsWith("@{") && trimmed.EndsWith("}"));
+    }
 
     public string HandleValue(string value, string suggestedName, string returnType = "string")
     {
@@ -172,6 +175,7 @@ public class PolicyDecompilerContext
 
     public string CreateExpressionMethodReference(string value, string suggestedName, string returnType)
     {
+        value = value.Trim();
         if (value.StartsWith("@(") && value.EndsWith(")"))
         {
             var body = value.Substring(2, value.Length - 3);
@@ -624,12 +628,23 @@ public class PolicyDecompilerContext
     public string BuildBodyConfigProperty(XElement bodyElement)
     {
         var valueChild = bodyElement.Element("value");
-        string content;
+        string contentExpr;
         if (valueChild != null)
-            content = GetElementTextOrValue(valueChild);
+        {
+            contentExpr = HandleValue(GetElementTextOrValue(valueChild), "BodyContent");
+        }
+        else if (bodyElement.Nodes().Any(n => n is XElement))
+        {
+            // Liquid template with XML body — serialize children verbatim, preserving Liquid tokens.
+            // Use SaveOptions.None (formatted) so element-only children retain whitespace between
+            // their child elements, which is needed for round-trip fidelity.
+            var innerXml = string.Concat(bodyElement.Nodes().Select(n => n.ToString(SaveOptions.None)));
+            contentExpr = Literal(innerXml);
+        }
         else
-            content = GetElementText(bodyElement);
-        var contentExpr = HandleValue(content, "BodyContent");
+        {
+            contentExpr = HandleValue(GetElementText(bodyElement), "BodyContent");
+        }
 
         var bodyProps = new List<string> { $"Content = {contentExpr}" };
         var template = bodyElement.Attribute("template")?.Value;

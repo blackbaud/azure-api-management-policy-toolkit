@@ -40,7 +40,7 @@ public sealed class CustomXmlWriter : IDisposable
 
         if (element.HasElements)
         {
-            WriteElements(element.Elements());
+            WriteNodes(element.Nodes());
         }
         else if (!string.IsNullOrEmpty(element.Value))
         {
@@ -50,11 +50,36 @@ public sealed class CustomXmlWriter : IDisposable
         _xmlWriter.WriteEndElement();
     }
 
-    private void WriteElements(IEnumerable<XElement> elements)
+    private void WriteNodes(IEnumerable<XNode> nodes)
     {
-        foreach (var element in elements)
+        foreach (var node in nodes)
         {
-            Write(element);
+            switch (node)
+            {
+                case XElement childElement:
+                    Write(childElement);
+                    break;
+                // XCData derives from XText and must be matched first.
+                case XCData cdata:
+                    _xmlWriter.WriteCData(cdata.Value);
+                    break;
+                case XText textNode when string.IsNullOrWhiteSpace(textNode.Value):
+                    // Whitespace-only text nodes (indentation from formatted body) — write as
+                    // whitespace so that siblings and their children are separated in the output.
+                    _xmlWriter.WriteWhitespace(textNode.Value);
+                    break;
+                case XText textNode:
+                    // Delegate to WriteValue so that APIM policy expressions (@(...) / @{...})
+                    // are written raw while all other text is properly XML-escaped.
+                    WriteValue(textNode.Value);
+                    break;
+                case XComment comment:
+                    comment.WriteTo(_xmlWriter);
+                    break;
+                case XProcessingInstruction pi:
+                    _xmlWriter.WriteProcessingInstruction(pi.Target, pi.Data);
+                    break;
+            }
         }
     }
 
